@@ -1,6 +1,20 @@
 import socket
 from urlparse import urlparse
 
+def load(url):
+    headers, body = request(url)
+    show(body)
+
+def show(body):
+    in_angle = False
+    for c in body:
+        if c == "<":
+            in_angle = True
+        elif c == ">":
+            in_angle = False
+        elif not in_angle:
+            print(c, end="")
+
 def request(url):
     url, host, path = urlparse(url)
     s = socket.socket(
