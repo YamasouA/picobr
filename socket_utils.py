@@ -1,5 +1,6 @@
 import socket
 from urlparse import urlparse
+import ssl
 
 def load(url):
     headers, body = request(url)
@@ -16,14 +17,23 @@ def show(body):
             print(c, end="")
 
 def request(url):
-    url, host, path = urlparse(url)
+    scheme, url, host, path = urlparse(url)
     s = socket.socket(
         family=socket.AF_INET,
         type=socket.SOCK_STREAM,
         proto=socket.IPPROTO_TCP,
     )
+    # HTTPSは443ポートを使う
+    port = 80 if scheme == "http" else 443
+    if scheme == "https":
+        ctx = ssl.create_default_context()
+        s = ctx.wrap_socket(s, server_hostname=host)
 
-    s.connect((host, 80))
+    # カスタムポート
+    if ":" in host:
+        host, port = host.split(":", 1)
+        port = int(port)
+    s.connect((host, port))
     # 改行には\r\nを用いる
     # リクエストの最後に空行を入れる
     # データ送信時はバイトとして送るからエンコードが必要
