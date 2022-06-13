@@ -8,14 +8,37 @@ def load(url):
 
 def show(body):
     in_angle = False
+    in_body = False 
+    body_text = "body"
+    endbody_text = "/body"
+    body_idx = 0
+    endbody_idx = 0
     for c in body:
+        if in_angle:
+            if c == body_text[body_idx] and body_idx < 4:
+                body_idx+=1
+            else:
+                body_idx = 0
+            if body_idx == 4:
+                in_body = True
+                body_idx = 0
+        if in_angle and in_body:
+            if c == endbody_text[endbody_idx] and endbody_idx < 5:
+                endbody_idx += 1
+            else:
+                endbody_idx = 0
+            if endbody_idx == 5:
+                in_body = False
         if c == "<":
             in_angle = True
         elif c == ">":
             in_angle = False
-        elif not in_angle:
+        elif in_body and not in_angle:
             print(c, end="")
-
+    '''
+    for c in body:
+        print(c, end="")in_angle = False
+    '''
 def send_text(header_list):
     ret =""
         

@@ -2,7 +2,7 @@ def urlparse(url):
     # とりあえず、httpのみを取り扱う
     # assert url.startswith("http://")
     scheme, url = url.split("://", 1)
-    assert scheme in ["http", "https", "file"], "Unknown scheme {}".format(scheme)
+    assert scheme in ["http", "https", "file", "data"], "Unknown scheme {}".format(scheme)
     # url = url[len("http://"):]
     host, path = url.split("/", 1)
     if host == "" and scheme == "file":
