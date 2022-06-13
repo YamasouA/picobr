@@ -16,6 +16,10 @@ def show(body):
         elif not in_angle:
             print(c, end="")
 
+def send_text(header_list):
+    ret =""
+        
+
 def request(url):
     scheme, url, host, path = urlparse(url)
     s = socket.socket(
@@ -24,7 +28,12 @@ def request(url):
         proto=socket.IPPROTO_TCP,
     )
     # HTTPSは443ポートを使う
-    port = 80 if scheme == "http" else 443
+    if scheme == "http":
+        port = 80
+    elif scheme == "https":
+        port = 443
+    elif scheme == "file":
+        port = 8000
     if scheme == "https":
         ctx = ssl.create_default_context()
         s = ctx.wrap_socket(s, server_hostname=host)
@@ -33,11 +42,29 @@ def request(url):
     if ":" in host:
         host, port = host.split(":", 1)
         port = int(port)
+    #host = "localhost"
     s.connect((host, port))
+    #print(s)
     # 改行には\r\nを用いる
     # リクエストの最後に空行を入れる
     # データ送信時はバイトとして送るからエンコードが必要
-    s.send("GET {} HTTP/1.0\r\n".format(path).encode("utf8") + "Host: {}\r\n\r\n".format(host).encode("utf8"))
+
+    # リクエストヘッダーを作成
+    method = "GET"
+    http_ver = "HTTP/1.1"
+    request_headers = {}
+    request_headers["Host"] = host
+    request_headers["Connection"] = "close"
+    request_headers["User-Agent"] = "picobr"
+    request_header = "{} {} {}\r\n".format(method, path, http_ver)
+    for key, value in request_headers.items():
+        tmp_str = "{}: {}\r\n".format(key, value)
+        request_header += tmp_str
+    request_header = (request_header + "\r\n").encode("utf-8")
+    #print(request_header)
+    #print(type(request_header))
+    
+    s.send(request_header)
     
     response = s.makefile("r", encoding="utf8", newline="\r\n")
 
