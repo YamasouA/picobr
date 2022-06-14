@@ -7,33 +7,41 @@ def load(url):
     show(body)
 
 def show(body):
+    entities = {}
+    entities["lt"] = "<"
+    entities["gt"] = ">"
+    entities["amp"] = "&"
+    entities["quot"] = "\""
     in_angle = False
-    in_body = False 
-    body_text = "body"
-    endbody_text = "/body"
-    body_idx = 0
-    endbody_idx = 0
+    in_body = False
+    is_entity = False
+    text = ""
+    body_tag = ["body", "/body"]
     for c in body:
-        if in_angle:
-            if c == body_text[body_idx] and body_idx < 4:
-                body_idx+=1
-            else:
-                body_idx = 0
-            if body_idx == 4:
-                in_body = True
-                body_idx = 0
-        if in_angle and in_body:
-            if c == endbody_text[endbody_idx] and endbody_idx < 5:
-                endbody_idx += 1
-            else:
-                endbody_idx = 0
-            if endbody_idx == 5:
-                in_body = False
+        if in_angle or is_entity:
+            text += c
+            #print(text)
         if c == "<":
             in_angle = True
+            continue
         elif c == ">":
             in_angle = False
-        elif in_body and not in_angle:
+            text = text[:-1]
+            if text in body_tag:
+                in_body = not in_body
+            text = ""
+            continue
+        elif c == "&":
+            is_entity = True
+            continue
+        #print("in_angle, in_body, is_entity, text")
+        #print(in_angle, in_body, is_entity, text)
+        if in_body and text != "" and (is_entity and c == ";"):
+            text = text[:-1]
+            print(entities[text], end="")
+            is_entity = False
+            text = ""
+        elif in_body and not in_angle and not is_entity:
             print(c, end="")
     '''
     for c in body:
