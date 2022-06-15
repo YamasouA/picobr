@@ -2,25 +2,41 @@ import socket
 from urlparse import urlparse
 import ssl
 
+entities = {"lt": "<", "gt": ">", "amp": "&", "quot": "\""}
+
 def load(url):
     headers, body = request(url)
     show(body)
 
+def transform(body):
+    text = ""
+    for c in body:
+        if c == "<":
+            text += "&lt;"
+        elif c == ">":
+            text += "&gt;"
+        elif c == "&":
+            text += "&amp;"
+        elif c == "\"":
+            text += "&quot;"
+        else:
+            text += c
+    #print(text)
+    return text
+        
+
 def show(body):
-    entities = {}
-    entities["lt"] = "<"
-    entities["gt"] = ">"
-    entities["amp"] = "&"
-    entities["quot"] = "\""
     in_angle = False
     in_body = False
     is_entity = False
+    if body[0] == "&":
+        in_body = True
+    print(body)
     text = ""
     body_tag = ["body", "/body"]
     for c in body:
         if in_angle or is_entity:
             text += c
-            #print(text)
         if c == "<":
             in_angle = True
             continue
@@ -52,7 +68,11 @@ def send_text(header_list):
         
 
 def request(url):
+    is_view_source = False
     scheme, url, host, path = urlparse(url)
+    if scheme == "view-source":
+        is_view_source = True
+        scheme, url, host, path = urlparse(url)
     s = socket.socket(
         family=socket.AF_INET,
         type=socket.SOCK_STREAM,
@@ -118,6 +138,8 @@ def request(url):
     assert "content-encoding" not in headers
 
     body = response.read()
+    if is_view_source:
+        body = transform(body)
     s.close()
 
     return headers, body
