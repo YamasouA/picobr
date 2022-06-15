@@ -1,8 +1,9 @@
 import socket
 from urlparse import urlparse
 import ssl
+import gzip
 
-entities = {"lt": "<", "gt": ">", "amp": "&", "quot": "\""}
+entities = {"lt": "<", "gt": ">", "amp": "&", "quot": "\"", "#39": "\'", "copy": "©", "ndash": "–"}
 
 def load(url):
     headers, body = request(url)
@@ -16,6 +17,8 @@ def transform(body):
         elif c == ">":
             text += "&gt;"
         elif c == "&":
+            # "&"を&ampに書き換えることで、元が&lt;などが&amp;ltとなり、
+            # showの時にソースコード通りに出力できる
             text += "&amp;"
         elif c == "\"":
             text += "&quot;"
@@ -31,12 +34,16 @@ def show(body):
     is_entity = False
     if body[0] == "&":
         in_body = True
-    print(body)
     text = ""
     body_tag = ["body", "/body"]
     for c in body:
         if in_angle or is_entity:
+            if c == "\n":
+                continue
             text += c
+            #print("text: ", text)
+            #print("in_angle: ", in_angle)
+            #print("is_entity: ", is_entity)
         if c == "<":
             in_angle = True
             continue
@@ -47,7 +54,7 @@ def show(body):
                 in_body = not in_body
             text = ""
             continue
-        elif c == "&":
+        elif c == "&" and (not in_angle):
             is_entity = True
             continue
         #print("in_angle, in_body, is_entity, text")
@@ -107,6 +114,7 @@ def request(url):
     request_headers["Host"] = host
     request_headers["Connection"] = "close"
     request_headers["User-Agent"] = "picobr"
+    #request_headers["Accept-Encoding"] = "gzip"
     request_header = "{} {} {}\r\n".format(method, path, http_ver)
     for key, value in request_headers.items():
         tmp_str = "{}: {}\r\n".format(key, value)
@@ -134,9 +142,12 @@ def request(url):
         headers[header.lower()] = value.strip()
 
     # アクセスしようとするデータが通常とは異なる方法で送信されていることを示すヘッダーがないかを確認
-    assert "transfer-encoding" not in headers
-    assert "content-encoding" not in headers
+    #assert "transfer-encoding" not in headers
+    #assert "content-encoding" not in headers
 
+    print(headers)
+    #if headers["content-encoding"] == "gzip":
+    #    body = gzip.decompress(body).encoding("utf-8")
     body = response.read()
     if is_view_source:
         body = transform(body)
