@@ -2,8 +2,8 @@ import socket
 from urlparse import urlparse
 import ssl
 import gzip
-
-entities = {"lt": "<", "gt": ">", "amp": "&", "quot": "\"", "#39": "\'", "copy": "©", "ndash": "–"}
+import io
+entities = {"lt": "<", "gt": ">", "amp": "&", "quot": "\"", "#39": "\'", "copy": "©", "ndash": "–", "#8212": "—", "#187": "»"}
 
 def load(url):
     headers, body = request(url)
@@ -56,11 +56,17 @@ def show(body):
             continue
         elif c == "&" and (not in_angle):
             is_entity = True
+            #print("c: ",c)
             continue
-        #print("in_angle, in_body, is_entity, text")
-        #print(in_angle, in_body, is_entity, text)
-        if in_body and text != "" and (is_entity and c == ";"):
+        '''
+        print("=== text = ", text)
+        print("in_angle: ", in_angle)
+        print("in_body: ", in_body)
+        print("is_entity: ", is_entity)
+        '''
+        if text != "" and (is_entity and c == ";"):
             text = text[:-1]
+            #print(text)
             print(entities[text], end="")
             is_entity = False
             text = ""
@@ -70,9 +76,42 @@ def show(body):
     for c in body:
         print(c, end="")in_angle = False
     '''
-def send_text(header_list):
-    ret =""
-        
+
+def chunked_text(body):
+    text = b""
+    #print(body)
+    while 1:
+        n_txt = b""
+        r_flag = False
+        n_flag = False
+        #print("\n\n\n\n\n\n\n\n\n\n")
+        for b in body:
+            b = bytes([b])
+            #print(b)
+            if b == b'\r':
+                r_flag = True
+                continue
+            elif b == b'\n':
+                n_flag = True
+            if r_flag and n_flag:
+                break
+            n_txt += b
+            #print("n_text: ", n_txt)
+        if n_txt == b'':
+            break
+        n = int(n_txt, 16)
+        #print(n)
+        #print("body1: ", body[:10])
+        body = body[len(n_txt) + 2:]
+        text += body[:n]
+        #print(text)
+        #print(body[n-2:n+1])
+        body = body[n:]
+        #print("body: ", body[:2])
+        if body == b"":
+            break
+    return text
+    #print(text)
 
 def request(url):
     is_view_source = False
@@ -114,7 +153,7 @@ def request(url):
     request_headers["Host"] = host
     request_headers["Connection"] = "close"
     request_headers["User-Agent"] = "picobr"
-    #request_headers["Accept-Encoding"] = "gzip"
+    request_headers["Accept-Encoding"] = "gzip"
     request_header = "{} {} {}\r\n".format(method, path, http_ver)
     for key, value in request_headers.items():
         tmp_str = "{}: {}\r\n".format(key, value)
@@ -125,17 +164,25 @@ def request(url):
     
     s.send(request_header)
     
-    response = s.makefile("r", encoding="utf8", newline="\r\n")
+    #response = s.makefile("r", encoding="utf8", newline="\r\n")
+    response = s.makefile("rb", newline="\r\n")
+    print("response type: ", type(response))
 
     # HTTP Version, Response Code(status), Response Description(ex OK)のような形で帰ってくる
     statusline = response.readline()
-    version, status, explanation = statusline.split(" ", 2)
+    print("statusline: ", type(statusline))
+    version, status, explanation = statusline.split(b" ", 2)
+    print("version: ",version, " status: ", status, " exp: ", explanation)
+    version = version.decode('utf-8')
+    status = status.decode('utf-8')
+    explanation = explanation.decode('utf-8')
+    print("version: ",version, " status: ", status, " exp: ", explanation)
     assert status == "200", "{}: {}".format(status, explanation)
 
     # ステータス行の次のヘッダーの処理
     headers = {}
     while True:
-        line = response.readline()
+        line = response.readline().decode('utf-8')
         if line == "\r\n":
             break
         header, value = line.split(":", 1)
@@ -146,9 +193,15 @@ def request(url):
     #assert "content-encoding" not in headers
 
     print(headers)
-    #if headers["content-encoding"] == "gzip":
-    #    body = gzip.decompress(body).encoding("utf-8")
     body = response.read()
+    #print(body)
+    if "content-encoding" in headers and headers["content-encoding"] == "gzip":
+        #body = gzip.decompress(body)
+        if "transfer-encoding" in headers:
+            body = chunked_text(body)
+        body = gzip.decompress(body)
+    body = body.decode("utf-8")
+    #print(body)
     if is_view_source:
         body = transform(body)
     s.close()
