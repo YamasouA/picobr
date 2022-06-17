@@ -7,7 +7,7 @@ python browser.py <url>
 
 ## 現状
 - Schemes
--- http, https, file, view-source
+    - http, https, file, view-source
 
 - Redirect
 
@@ -15,8 +15,9 @@ python browser.py <url>
 
 
 ## 課題
-- <script>が存在するhtmlファイルの表示
-- data schemeの表示
-
+- Chapter1
+    - <script>が存在するhtmlファイルの表示
+    - data schemeの表示
+    - Cache-controlの再検討
 ## 参考
 - https://browser.engineering

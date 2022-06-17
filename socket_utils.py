@@ -3,6 +3,8 @@ from urlparse import urlparse
 import ssl
 import gzip
 import io
+import datetime
+
 entities = {"lt": "<", "gt": ">", "amp": "&", "quot": "\"", "#39": "\'", "copy": "©", "ndash": "–", "#8212": "—", "#187": "»"}
 
 def load(url):
@@ -117,10 +119,16 @@ def chunked_text(body):
     #print(text)
 
 def request(url):
+    cache_age = {}
+    cache_body = {}
+    cache_header = {}
     # リダイレクトの制限
     for i in range(10):
         is_view_source = False
         scheme, url, host, path = urlparse(url)
+        if url in cache_age:
+            if cache_age[url] > datetime.datetime.now():
+                return cache_body[url], cache_header[url]
         if scheme == "view-source":
             is_view_source = True
             scheme, url, host, path = urlparse(url)
@@ -221,7 +229,15 @@ def request(url):
         #print(body)
         if is_view_source:
             body = transform(body)
-        
+
+        # キャッシュする
+        if "cache-control" in headers and headers["cache-control"] == "max-age":
+            cache_body[url] = body
+            cache_headers[url] = headers
+            cache_age[url] = datetime.datetime.now() + datetime.timedelta(seconds=headers["cache-control"])
+        elif "cache-control" in headers and headers["cache-control"] == "no-store":
+            pass
+
         break
 
     s.close()
