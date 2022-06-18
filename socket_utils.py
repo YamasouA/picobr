@@ -8,8 +8,11 @@ import datetime
 entities = {"lt": "<", "gt": ">", "amp": "&", "quot": "\"", "#39": "\'", "copy": "©", "ndash": "–", "#8212": "—", "#187": "»"}
 
 def load(url):
-    headers, body = request(url)
-    show(body)
+    headers, body, show_type = request(url)
+    if show_type:
+        show_all(body)
+    else:
+        show(body)
 
 def transform(body):
     text = ""
@@ -28,7 +31,10 @@ def transform(body):
             text += c
     #print(text)
     return text
-        
+
+def show_all(body):
+    for c in body:
+        print(c, end="")
 
 def show(body):
     in_angle = False
@@ -79,7 +85,7 @@ def show(body):
             print(c, end="")
     '''
     for c in body:
-        print(c, end="")in_angle = False
+        print(c, end="")
     '''
 
 def chunked_text(body):
@@ -128,10 +134,25 @@ def request(url):
         scheme, url, host, path = urlparse(url)
         if url in cache_age:
             if cache_age[url] > datetime.datetime.now():
-                return cache_body[url], cache_header[url]
+                return cache_body[url], cache_header[url], 0
         if scheme == "view-source":
             is_view_source = True
             scheme, url, host, path = urlparse(url)
+        elif scheme == "data":
+            mtype = "text/pain"
+            base = "charset=US-ASCII"
+
+            tmp = url.split(",", maxsplit=1)
+            if len(tmp) == 2:
+                mtype =  tmp[0]
+                if len(mtype.split(";")) == 2:
+                    base = mtype.split(";")[1]
+            data_body = tmp[1]
+            print("mtype: ", mtype)
+            data_body = url.split(",")[1]
+            print("data_body: ", data_body)
+            return {}, data_body, 1
+
         s = socket.socket(
             family=socket.AF_INET,
             type=socket.SOCK_STREAM,
@@ -242,4 +263,4 @@ def request(url):
 
     s.close()
 
-    return headers, body
+    return headers, body, 0
