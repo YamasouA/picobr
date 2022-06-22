@@ -80,6 +80,7 @@ class Browser:
         self.WIDTH = 800
         self.HSTEP = 13
         self.VSTEP = 18
+        self.SCROLL_STEP = 100
         self.canvas = tkinter.Canvas(
             self.window,
             width=self.WIDTH,
@@ -88,6 +89,12 @@ class Browser:
         # キャンバスをウィンドウ内に配置
         self.canvas.pack()
         self.scroll = 0
+        self.window.bind("<Down>", self.scrolldown)
+
+    def scrolldown(self, e):
+        self.canvas.delete("all")
+        self.scroll += self.SCROLL_STEP
+        self.draw()
 
     def draw(self):
         for x, y, c in self.display_list:
