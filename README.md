@@ -19,5 +19,6 @@ python browser.py <url>
     - <script>が存在するhtmlファイルの表示
     - data schemeの表示
     - Cache-controlの再検討
+    - data schemeの表示の時に、show_flagを使わなくていいようにする(多分bodyタグで囲めばいい)
 ## 参考
 - https://browser.engineering

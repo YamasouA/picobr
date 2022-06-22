@@ -5,7 +5,7 @@ import gzip
 import io
 import datetime
 
-entities = {"lt": "<", "gt": ">", "amp": "&", "quot": "\"", "#39": "\'", "copy": "©", "ndash": "–", "#8212": "—", "#187": "»"}
+entities = {"lt": "<", "gt": ">", "amp": "&", "quot": "\"", "#39": "\'", "copy": "©", "ndash": "–", "#8212": "—", "#187": "»", "hellip": "…"}
 
 def load(url):
     headers, body, show_type = request(url)
@@ -91,14 +91,16 @@ def show(body):
 def chunked_text(body):
     text = b""
     #print(body)
+    cnt = 0
     while 1:
         n_txt = b""
-        r_flag = False
-        n_flag = False
+        #r_flag = False
+        #n_flag = False
         #print("\n\n\n\n\n\n\n\n\n\n")
         for b in body:
             b = bytes([b])
             #print(b)
+            '''
             if b == b'\r':
                 r_flag = True
                 continue
@@ -106,21 +108,50 @@ def chunked_text(body):
                 n_flag = True
             if r_flag and n_flag:
                 break
+            '''
             n_txt += b
+            if b == b'\n':
+                n_txt = n_txt[:-2]
+                break
             #print("n_text: ", n_txt)
+        '''
+        print("n_txt: ", n_txt)
+        print("len(body)1: ", len(body))
+        print("body: ", body[:len(n_txt)+2])
+        print("len(body)2: ", len(body))
+        print("body: ", body[:len(n_txt)+4])
+        print("len(body)3: ", len(body))
+        print("body: ", body[:len(n_txt)+6])
+        print("len(body)4: ", len(body))
+        '''
         if n_txt == b'':
             break
+        #print("n_txt: ", n_txt)
+        #print("len(n_txt): ", len(n_txt))
+        #print("len(body): ", len(body))
+        #print("body: ", body[:len(n_txt)+2])
         n = int(n_txt, 16)
+        if n == 0:
+            #text += b'\r\n'
+            break
+        print("n: ", n)
         #print(n)
         #print("body1: ", body[:10])
         body = body[len(n_txt) + 2:]
-        text += body[:n]
+        #print("len(body)5: ", len(body))
+        print("body here: ", body[:len(n_txt)+6])
+        #print("len(body)6: ", len(body))
+        if body[:n] != b'':
+            text += body[:n]
         #print(text)
         #print(body[n-2:n+1])
-        body = body[n:]
-        #print("body: ", body[:2])
-        if body == b"":
-            break
+        #print("body10: ", body[:2])
+        body = body[n + 2:]
+        #print("body100: ", body[:2])
+        #if body == b"":
+        #    break
+    #print("end chuncked")
+    #print(text)
     return text
     #print(text)
 
@@ -262,5 +293,4 @@ def request(url):
         break
 
     s.close()
-
     return headers, body, 0
