@@ -65,13 +65,17 @@ def lex(body):
 def layout(text):
     display_list = []
     cursor_x, cursor_y = HSTEP, VSTEP
+    print("HSTEP: ", HSTEP)
+    print("VSTEP: ", VSTEP)
     for c in text:
         display_list.append((cursor_x, cursor_y, c))
         cursor_x += HSTEP
+        '''
         if c == "\n":
             cursor_y += NLSTEP
             cursor_x = HSTEP
             continue
+        '''
         if cursor_x >= WIDTH - HSTEP:
             cursor_y += VSTEP
             cursor_x = HSTEP
@@ -89,6 +93,7 @@ class Browser:
         #self.VSTEP = 18
         #self.SCROLL_STEP = 100
         self.text = "" # body内容
+        self.FONTSIZE = 18
         self.canvas = tkinter.Canvas(
             self.window,
             width=WIDTH,
@@ -102,6 +107,28 @@ class Browser:
         self.window.bind("<Up>", self.scrollup)
         self.window.bind("<MouseWheel>", self.mousehandler)
         self.window.bind("<Configure>", self.configure)
+        self.window.bind("<KeyPress-+>", self.change_font_size_plus)
+        self.window.bind("<KeyPress-minus>", self.change_font_size_minus)
+
+    def change_font_size_minus(self, e):
+        global HSTEP
+        global VSTEP
+        self.FONTSIZE = int(self.FONTSIZE/2)
+        HSTEP = int(HSTEP/2)
+        VSTEP = int(VSTEP/2)
+        self.canvas.delete("all")
+        self.display_list= layout(self.text)
+        self.draw()
+
+    def change_font_size_plus(self, e):
+        global HSTEP
+        global VSTEP
+        self.FONTSIZE *= 2
+        HSTEP *= 2
+        VSTEP *= 2
+        self.canvas.delete("all")
+        self.display_list= layout(self.text)
+        self.draw()
 
     def configure(self, e):
         #print(e)
@@ -147,7 +174,7 @@ class Browser:
             # 画面より上
             #if y + self.VSTEP < self.scroll: continue
             if y + VSTEP < self.scroll: continue
-            self.canvas.create_text(x, y - self.scroll, text=c)
+            self.canvas.create_text(x, y - self.scroll, text=c, font=("", self.FONTSIZE))
 
     def load(self, url):
         headers, body, show_flag = request(url)
