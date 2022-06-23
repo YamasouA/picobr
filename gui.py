@@ -96,17 +96,23 @@ class Browser:
         self.scroll = 0
         self.window.bind("<Down>", self.scrolldown)
         self.window.bind("<Up>", self.scrollup)
+        self.window.bind("<MouseWheel>", self.mousehandler)
 
+    def mousehandler(self, e):
+        if e.delta > 0:
+            self.scrollup(e)
+        else:
+            self.scrolldown(e)
     def scrolldown(self, e):
         endline = self.display_list[-1 ][1]
-        print(endline)
+        #print(endline)
         if self.scroll + self.HEIGHT < endline:
             self.canvas.delete("all")
             self.scroll += self.SCROLL_STEP
             self.draw()
     def scrollup(self, e):
         startline = self.display_list[0][1]
-        print(startline)
+        #print(startline)
         if self.scroll - self.SCROLL_STEP >= 0:
             self.canvas.delete("all")
             self.scroll -= self.SCROLL_STEP
