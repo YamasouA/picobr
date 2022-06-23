@@ -59,12 +59,17 @@ def lex(body):
 def layout(text):
     display_list = []
     HSTEP, VSTEP = 13, 18
+    NLSTEP = 25
     HEIGHT = 600
     WIDTH = 800
     cursor_x, cursor_y = HSTEP, VSTEP
     for c in text:
         display_list.append((cursor_x, cursor_y, c))
         cursor_x += HSTEP
+        if c == "\n":
+            cursor_y += NLSTEP
+            cursor_x = HSTEP
+            continue
         if cursor_x >= WIDTH - HSTEP:
             cursor_y += VSTEP
             cursor_x = HSTEP
@@ -90,14 +95,29 @@ class Browser:
         self.canvas.pack()
         self.scroll = 0
         self.window.bind("<Down>", self.scrolldown)
+        self.window.bind("<Up>", self.scrollup)
 
     def scrolldown(self, e):
-        self.canvas.delete("all")
-        self.scroll += self.SCROLL_STEP
-        self.draw()
+        endline = self.display_list[-1 ][1]
+        print(endline)
+        if self.scroll + self.HEIGHT < endline:
+            self.canvas.delete("all")
+            self.scroll += self.SCROLL_STEP
+            self.draw()
+    def scrollup(self, e):
+        startline = self.display_list[0][1]
+        print(startline)
+        if self.scroll - self.SCROLL_STEP >= 0:
+            self.canvas.delete("all")
+            self.scroll -= self.SCROLL_STEP
+            self.draw()
 
     def draw(self):
         for x, y, c in self.display_list:
+            # 画面より下
+            if y > self.scroll + self.HEIGHT: continue
+            # 画面より上
+            if y + self.VSTEP < self.scroll: continue
             self.canvas.create_text(x, y - self.scroll, text=c)
 
     def load(self, url):
@@ -105,32 +125,6 @@ class Browser:
         text = lex(body)
         self.display_list = layout(text)
         self.draw()
-        #print(text)
-        #HEIGHT = 600
-        #WIDTH = 800
-        # ウィンドウ作成
-        #self.window = tkinter.Tk()
-        # ウィンドウ内にキャンバスを作成
-        # 引数にwindowを渡して、キャンバスを表示する場所を認識
-        #self.canvas = tkinter.Canvas(
-        #    self.window,
-        #    width = WIDTH,
-        #    height = HEIGHT
-        #)
-        # キャンバスをウィンドウ内に配置
-        #self.canvas.pack()
-        # self.canvas.create_rectangle(10, 20, 400, 300)
-        # self.canvas.create_oval(100, 100, 150, 150)
-        
-        #HSTEP, VSTEP = 13, 18
-        #cursor_x, cursor_y = HSTEP, VSTEP
-        #for c in text:
-        #    self.canvas.create_text(cursor_x, cursor_y, text=c)
-        #    cursor_x += HSTEP
-        #    #print(cursor_x)
-        #    if cursor_x >= self.WIDTH - HSTEP:
-        #        cursor_y += VSTEP
-        #        cursor_x = HSTEP
 
 if __name__ == "__main__":
     import sys
