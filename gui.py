@@ -3,6 +3,12 @@ from socket_utils import request
 
 entities = {"lt": "<", "gt": ">", "amp": "&", "quot": "\"", "#39": "\'", "copy": "©", "ndash": "–", "#8212": "—", "#187": "»", "hellip": "…"}
 
+HSTEP, VSTEP = 13, 18
+NLSTEP = 25
+HEIGHT = 600
+WIDTH = 800
+SCROLL_STEP = 100
+
 def lex(body):
     tmp = ""
     in_angle = False
@@ -58,10 +64,6 @@ def lex(body):
 # スクロールできるように各文字の位置を保持する
 def layout(text):
     display_list = []
-    HSTEP, VSTEP = 13, 18
-    NLSTEP = 25
-    HEIGHT = 600
-    WIDTH = 800
     cursor_x, cursor_y = HSTEP, VSTEP
     for c in text:
         display_list.append((cursor_x, cursor_y, c))
@@ -81,54 +83,76 @@ class Browser:
         self.window = tkinter.Tk()
         # ウィンドウ内にキャンバスを作成
         # 引数にwindowを渡して、キャンバスを表示する場所を認識
-        self.HEIGHT = 600
-        self.WIDTH = 800
-        self.HSTEP = 13
-        self.VSTEP = 18
-        self.SCROLL_STEP = 100
+        #self.HEIGHT = 600
+        #self.WIDTH = 800
+        #self.HSTEP = 13
+        #self.VSTEP = 18
+        #self.SCROLL_STEP = 100
+        self.text = "" # body内容
         self.canvas = tkinter.Canvas(
             self.window,
-            width=self.WIDTH,
-            height=self.HEIGHT
+            width=WIDTH,
+            height=HEIGHT
         )
         # キャンバスをウィンドウ内に配置
-        self.canvas.pack()
+        #self.canvas.pack()
+        self.canvas.pack(expand=1, fill=tkinter.BOTH)
         self.scroll = 0
         self.window.bind("<Down>", self.scrolldown)
         self.window.bind("<Up>", self.scrollup)
         self.window.bind("<MouseWheel>", self.mousehandler)
+        self.window.bind("<Configure>", self.configure)
+
+    def configure(self, e):
+        #print(e)
+        global HEIGHT
+        HEIGHT = e.height
+        global WIDTH
+        WIDTH = e.width
+        #print(self.HEIGHT, self.WIDTH)
+        self.display_list = layout(self.text)
+        self.canvas.delete("all")
+        self.draw()
 
     def mousehandler(self, e):
         if e.delta > 0:
             self.scrollup(e)
         else:
             self.scrolldown(e)
+
     def scrolldown(self, e):
         endline = self.display_list[-1 ][1]
         #print(endline)
-        if self.scroll + self.HEIGHT < endline:
+        #if self.scroll + self.HEIGHT < endline:
+        if self.scroll + HEIGHT < endline:
             self.canvas.delete("all")
-            self.scroll += self.SCROLL_STEP
+            self.scroll += SCROLL_STEP
             self.draw()
+
     def scrollup(self, e):
         startline = self.display_list[0][1]
         #print(startline)
-        if self.scroll - self.SCROLL_STEP >= 0:
+        #if self.scroll - self.SCROLL_STEP >= 0:
+        if self.scroll - SCROLL_STEP >= 0:
             self.canvas.delete("all")
-            self.scroll -= self.SCROLL_STEP
+            #self.scroll -= self.SCROLL_STEP
+            self.scroll -= SCROLL_STEP
             self.draw()
 
     def draw(self):
         for x, y, c in self.display_list:
             # 画面より下
-            if y > self.scroll + self.HEIGHT: continue
+            #if y > self.scroll + self.HEIGHT: continue
+            if y > self.scroll + HEIGHT: continue
             # 画面より上
-            if y + self.VSTEP < self.scroll: continue
+            #if y + self.VSTEP < self.scroll: continue
+            if y + VSTEP < self.scroll: continue
             self.canvas.create_text(x, y - self.scroll, text=c)
 
     def load(self, url):
         headers, body, show_flag = request(url)
         text = lex(body)
+        self.text = text
         self.display_list = layout(text)
         self.draw()
 
