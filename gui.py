@@ -18,53 +18,6 @@ class Text:
 class Tag:
     def __init__(self, tag):
         self.tag = tag
-'''
-def lex(body):
-    tmp = ""
-    in_angle = False
-    in_body = False
-    is_entity = False
-    if body[0] == "&":
-        in_body = True
-    text = ""
-    body_tag = ["body", "/body"]
-    for c in body:
-        if in_angle or is_entity:
-            if c == "\n":
-                continue
-            tmp += c
-            #print("text: ", text)
-            #print("in_angle: ", in_angle)
-            #print("is_entity: ", is_entity)
-        if c == "<":
-            in_angle = True
-            continue
-        elif c == ">":
-            in_angle = False
-            tmp = tmp[:-1]
-            tag = tmp.split(' ')[0]
-            #print("=== tag ===")
-            #print(tag)
-            if tag in body_tag:
-                in_body = not in_body
-            tmp = ""
-            continue
-        elif c == "&" and (not in_angle):
-            is_entity = True
-            #print("c: ",c)
-            continue
-        if tmp!= "" and (is_entity and c == ";"):
-            tmp = tmp[:-1]
-            # print(entities[tmp], end="")
-            text += entities[tmp]
-            is_entity = False
-            tmp = ""
-        elif in_body and not in_angle and not is_entity:
-            # print(c, end="")
-            text += c
-
-    return text
-'''
 
 def lex(body):
     out = []
@@ -85,7 +38,7 @@ def lex(body):
     if not in_tag and text:
         out.append(Text(text))
     return out
-'''
+
 # スクロールできるように各文字の位置を保持する
 def layout(tokens):
     display_list = []
@@ -129,17 +82,34 @@ def layout(tokens):
             weight = "normal"
 
     return display_list
-'''
+
 class Layout:
     def __init__(self, tokens):
         self.cursor_x = HSTEP
         self.cursor_y = VSTEP
         self.weight = "normal"
         self.style = "roman"
-        self.size = 16
+        self.size = FONT_SIZE
         self.display_list = []
+        self.line = []
         for tok in tokens:
             self.token(tok)
+        self.flush()
+
+    def flush(self):
+        if not self.line: return
+        metrics = [font.metrics() for x, word, font in self.line]
+        max_ascent = max([metric["ascent"] for metric in metrics])
+        baseline = self.cursor_y + 1.25 * max_ascent
+
+        for x, word, font in self.line:
+            y = baseline - font.metrics("ascent")
+            self.display_list.append((x, y, word, font))
+
+        self.cursor_x = HSTEP
+        self.line = []
+        max_descent = max([metric["descent"] for metric in metrics])
+        self.cursor_y = baseline + 1.25 * max_descent
 
     def token(self, tok):
         if isinstance(tok, Text):
@@ -152,6 +122,19 @@ class Layout:
             self.weight = "bold"
         elif tok.tag == "/b":
             self.weight = "normal"
+        elif tok.tag == "small":
+            self.size -= 2
+        elif tok.tag == "/small":
+            self.size += 2
+        elif tok.tag == "big":
+            self.size += 4
+        elif tok.tag == "/big":
+            self.size -= 4
+        elif tok.tag == "br":
+            self.flush()
+        elif tok.tag == "/p":
+            self.flush()
+            self.cursor_y += VSTEP #段落が変わるときは空白を少し広げる
 
     def text(self, tok):
         font = tkinter.font.Font(
@@ -160,12 +143,43 @@ class Layout:
             slant = self.style,
         )
         for word in tok.text.split():
-            w = font.measure(word)
-            if self.cursor_x + w > WIDTH - HSTEP:
-                self.cursor_y += font.metrics("linespace") * 1.25
-                self.cursor_x = HSTEP
-            self.display_list.append((self.cursor_x, self.cursor_y, word, font))
-            self.cursor_x += w + font.measure(" ")
+            #w = font.measure(word)
+            tmp = ""
+            is_entitie = False
+            for i in range(len(word)):
+                if word[i] == "&":
+                    if tmp != "":
+                        w = font.measure(tmp)
+                        if self.cursor_x + w > WIDTH - HSTEP:
+                            self.flush()
+                        self.line.append((self.cursor_x, tmp, font))
+                        self.cursor_x += w
+                        tmp = ""
+                    is_entitie = True
+                elif word[i] == ";" and is_entitie:
+                    entitie = entities[tmp]
+                    w = font.measure(entitie)
+                    if self.cursor_x + w > WIDTH - HSTEP:
+                        self.flush()
+                    self.line.append((self.cursor_x, entitie, font))
+                    self.cursor_x += w
+                    is_entitie = False
+                    tmp = ""
+                else:
+                    tmp += word[i]
+            if tmp != "":
+                w = font.measure(tmp)
+                if self.cursor_x + w > WIDTH - HSTEP:
+                    self.flush()
+                self.line.append((self.cursor_x, tmp, font))
+                self.cursor_x += w
+            
+            #w = font.measure(word)
+            #if self.cursor_x + w > WIDTH - HSTEP:
+            #    self.flush()
+            #self.line.append((self.cursor_x, word, font))
+            #self.cursor_x += w + font.measure(" ")
+            self.cursor_x += font.measure(" ")
 
 class Browser:
     def __init__(self):
@@ -196,7 +210,7 @@ class Browser:
         self.window.bind("<KeyPress-+>", self.change_font_size_plus)
         self.window.bind("<KeyPress-minus>", self.change_font_size_minus)
 
-        print(tkinter.font.families())
+        #print(tkinter.font.families())
         bi_times = tkinter.font.Font(
             family="Times",
             size=16,
@@ -212,7 +226,7 @@ class Browser:
         HSTEP = int(HSTEP/2)
         VSTEP = int(VSTEP/2)
         self.canvas.delete("all")
-        self.display_list= layout(self.tokens)
+        self.display_list= Layout(self.tokens).display_list
         self.draw()
 
     def change_font_size_plus(self, e):
@@ -223,7 +237,7 @@ class Browser:
         HSTEP *= 2
         VSTEP *= 2
         self.canvas.delete("all")
-        self.display_list= layout(self.tokens)
+        self.display_list= Layout(self.tokens).display_list
         self.draw()
 
     def configure(self, e):
@@ -233,7 +247,7 @@ class Browser:
         global WIDTH
         WIDTH = e.width
         #print(self.HEIGHT, self.WIDTH)
-        self.display_list = layout(self.tokens)
+        self.display_list = Layout(self.tokens).display_list
         self.canvas.delete("all")
         self.draw()
 
@@ -263,6 +277,7 @@ class Browser:
             self.draw()
 
     def draw(self):
+        #print(self.display_list)
         for x, y, c, font in self.display_list:
             # 画面より下
             #if y > self.scroll + self.HEIGHT: continue
