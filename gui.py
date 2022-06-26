@@ -57,6 +57,7 @@ class Layout:
         self.display_list = []
         self.line = []
         self.is_sup = False
+        self.is_pre = False
         for tok in tokens:
             self.token(tok)
         self.flush()
@@ -108,50 +109,70 @@ class Layout:
         elif tok.tag == "/sup":
             self.size *= 2
             self.is_sup = False
+        elif tok.tag == "pre":
+            self.is_pre = True
+        elif tok.tag == "/pre":
+            self.is_pre = False
         #elif tok.tag == "h1 class=\"title\"":
         
             self.cursor_y += VSTEP #段落が変わるときは空白を少し広げる
 
     def text(self, tok):
         font = get_font(size=self.size, weight = self.weight, slant = self.style)
-        for word in tok.text.split():
-            #w = font.measure(word)
+        if self.is_pre:
             tmp = ""
-            is_entitie = False
-            for i in range(len(word)):
-                if word[i] == "&":
-                    if tmp != "":
-                        w = font.measure(tmp)
-                        if self.cursor_x + w > WIDTH - HSTEP:
-                            self.flush()
-                        self.line.append((self.cursor_x, tmp, font))
-                        self.cursor_x += w
-                        tmp = ""
-                    is_entitie = True
-                elif word[i] == ";" and is_entitie:
-                    entitie = entities[tmp]
-                    w = font.measure(entitie)
-                    if self.cursor_x + w > WIDTH - HSTEP:
-                        self.flush()
-                    self.line.append((self.cursor_x, entitie, font))
+            for i in range(len(tok.text)):
+                if tok.text[i] == "\n":
+                    w = font.measure(tmp)
+                    self.line.append((self.cursor_x, tmp, font))
                     self.cursor_x += w
-                    is_entitie = False
+                    self.flush()
                     tmp = ""
                 else:
-                    tmp += word[i]
+                    tmp += tok.text[i]
             if tmp != "":
-                w = font.measure(tmp)
-                if self.cursor_x + w > WIDTH - HSTEP:
-                    self.flush()
                 self.line.append((self.cursor_x, tmp, font))
                 self.cursor_x += w
-            
-            #w = font.measure(word)
-            #if self.cursor_x + w > WIDTH - HSTEP:
-            #    self.flush()
-            #self.line.append((self.cursor_x, word, font))
-            #self.cursor_x += w + font.measure(" ")
-            self.cursor_x += font.measure(" ")
+                self.flush()
+        else:    
+            for word in tok.text.split():
+                #w = font.measure(word)
+                tmp = ""
+                is_entitie = False
+                for i in range(len(word)):
+                    if word[i] == "&":
+                        if tmp != "":
+                            w = font.measure(tmp)
+                            if self.cursor_x + w > WIDTH - HSTEP:
+                                self.flush()
+                            self.line.append((self.cursor_x, tmp, font))
+                            self.cursor_x += w
+                            tmp = ""
+                        is_entitie = True
+                    elif word[i] == ";" and is_entitie:
+                        entitie = entities[tmp]
+                        w = font.measure(entitie)
+                        if self.cursor_x + w > WIDTH - HSTEP:
+                            self.flush()
+                        self.line.append((self.cursor_x, entitie, font))
+                        self.cursor_x += w
+                        is_entitie = False
+                        tmp = ""
+                    else:
+                        tmp += word[i]
+                if tmp != "":
+                    w = font.measure(tmp)
+                    if self.cursor_x + w > WIDTH - HSTEP:
+                        self.flush()
+                    self.line.append((self.cursor_x, tmp, font))
+                    self.cursor_x += w
+                
+                #w = font.measure(word)
+                #if self.cursor_x + w > WIDTH - HSTEP:
+                #    self.flush()
+                #self.line.append((self.cursor_x, word, font))
+                #self.cursor_x += w + font.measure(" ")
+                self.cursor_x += font.measure(" ")
 
 class Browser:
     def __init__(self):
