@@ -10,6 +10,7 @@ HEIGHT = 600
 WIDTH = 800
 SCROLL_STEP = 100
 FONT_SIZE = 16
+FONTS = {}
 
 class Text:
     def __init__(self, text):
@@ -18,6 +19,13 @@ class Text:
 class Tag:
     def __init__(self, tag):
         self.tag = tag
+
+def get_font(size, weight, slant):
+    key = (size, weight, slant)
+    if key not in FONTS:
+        font = tkinter.font.Font(size=size, weight=weight, slant=slant)
+        FONTS[key] = font
+    return FONTS[key]
 
 def lex(body):
     out = []
@@ -39,50 +47,6 @@ def lex(body):
         out.append(Text(text))
     return out
 
-# スクロールできるように各文字の位置を保持する
-def layout(tokens):
-    display_list = []
-    cursor_x, cursor_y = HSTEP, VSTEP
-    print("HSTEP: ", HSTEP)
-    print("VSTEP: ", VSTEP)
-    for c in text:
-        display_list.append((cursor_x, cursor_y, c))
-        cursor_x += HSTEP
-        if c == "\n":
-            cursor_y += NLSTEP
-            cursor_x = HSTEP
-            continue
-        if cursor_x >= WIDTH - HSTEP:
-            cursor_y += VSTEP
-            cursor_x = HSTEP
-    weight = "normal"
-    style = "roman"
-    for tok in tokens:
-        # tokがText型か、（そうでなければ、Tag型）
-        if isinstance(tok, Text):
-            font = tkinter.font.Font(
-                size=FONT_SIZE,
-                weight = weight,
-                slant = style,
-            )
-            for word in tok.text.split():
-                w = font.measure(word)
-                if cursor_x + w > WIDTH - HSTEP:
-                    cursor_y += font.metrics("linespace") * 1.25
-                    cursor_x = HSTEP
-                display_list.append((cursor_x, cursor_y, word, font))
-                cursor_x += w + font.measure(" ")
-        elif tok.tag == "i":
-            style = "italic"
-        elif tok.tag == "/i":
-            style = "roman"
-        elif tok.tag == "b":
-            weight = "bold"
-        elif tok.tag == "/b":
-            weight = "normal"
-
-    return display_list
-
 class Layout:
     def __init__(self, tokens):
         self.cursor_x = HSTEP
@@ -92,6 +56,7 @@ class Layout:
         self.size = FONT_SIZE
         self.display_list = []
         self.line = []
+        self.is_sup = False
         for tok in tokens:
             self.token(tok)
         self.flush()
@@ -100,10 +65,13 @@ class Layout:
         if not self.line: return
         metrics = [font.metrics() for x, word, font in self.line]
         max_ascent = max([metric["ascent"] for metric in metrics])
-        baseline = self.cursor_y + 1.25 * max_ascent
+        if self.is_sup:
+            baseline = self.cursor_y
+        else:
+            baseline = self.cursor_y + 1.25 * max_ascent
 
         for x, word, font in self.line:
-            y = baseline - font.metrics("ascent")
+            y = baseline #- font.metrics("ascent")
             self.display_list.append((x, y, word, font))
 
         self.cursor_x = HSTEP
@@ -134,14 +102,18 @@ class Layout:
             self.flush()
         elif tok.tag == "/p":
             self.flush()
+        elif tok.tag == "sup":
+            self.size = int(self.size/2)
+            self.is_sup = True
+        elif tok.tag == "/sup":
+            self.size *= 2
+            self.is_sup = False
+        #elif tok.tag == "h1 class=\"title\"":
+        
             self.cursor_y += VSTEP #段落が変わるときは空白を少し広げる
 
     def text(self, tok):
-        font = tkinter.font.Font(
-            size=self.size,
-            weight = self.weight,
-            slant = self.style,
-        )
+        font = get_font(size=self.size, weight = self.weight, slant = self.style)
         for word in tok.text.split():
             #w = font.measure(word)
             tmp = ""
