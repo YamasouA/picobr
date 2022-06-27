@@ -13,12 +13,91 @@ FONT_SIZE = 16
 FONTS = {}
 
 class Text:
-    def __init__(self, text):
+    def __init__(self, text, parent):
         self.text = text
+        # text nodeは基本的に子ノードを持たないが、TextとElement両方に
+        # childrenフィールドを追加することで、isinstanceの呼び出しを回避する
+        self.children = []
+        self.parent = parent
+    def __repr__(self):
+        return repr(self.text)
 
-class Tag:
-    def __init__(self, tag):
+class Element:
+    def __init__(self, tag, parent):
         self.tag = tag
+        self.children = []
+        self.parent = parent
+    def __repr__(self):
+        return "<" + self.tag + ">"
+
+class HTMLParser:
+    def __init__(self, body):
+        self.body = body
+        self.unfinished = []
+        self.SELF_CLOSING_TAGS = [
+            "area", "base", "br", "col", "embed", "hr", "img", "input",
+            "link", "meta", "param", "source", "track", "wbr",
+        ]
+
+    def add_text(self, text):
+        if text.isspace(): return
+        parent = self.unfinished[-1]
+        node = Text(text, parent)
+        parent.children.append(node)
+
+    def add_tag(self, tag):
+        # !doctypeはこのブラウザでは捨てる
+        if tag.startswith("!"): return
+        if tag.startswith("/"):
+            if len(self.unfinished) == 1: return
+            node = self.unfinished.pop()
+            parent = self.unfinished[-1]
+            parent.children.append(node)
+        elif tag in self.SELF_CLOSING_TAGS:
+            parent = self.unfinished[-1]
+            node = Element(tag, parent)
+            parent.children.append(node)
+        else:
+            parent = self.unfinished[-1] if self.unfinished else None
+            # parentは開始タグの段階で情報を与える
+            node = Element(tag, parent)
+            self.unfinished.append(node)
+
+    def finish(self):
+        if len(self.unfinished) == 0:
+            self.add_tag("html")
+        # 終了していないノードを強制的に終わらせる
+        while len(self.unfinished) > 1:
+            node = self.unfinished.pop()
+            parent = self.unfinished[-1]
+            parent.children.append(node)
+        # unfinishedの最後の一つはルートノード
+        return self.unfinished.pop()
+    
+    def parse(self):
+        text = ""
+        in_tag = False
+        for c in self.body:
+            if c == "<":
+                in_tag = True
+                if text:
+                    self.add_text(text)
+                text = ""
+            elif c == ">":
+                in_tag = False
+                self.add_tag(text)
+                text = ""
+            else:
+                text += c
+        if not in_tag and text:
+            self.add_text(text)
+        return self.finish()
+
+def print_tree(node, indent=0):
+    print(" " * indent, node)
+    for child in node.children:
+        print_tree(child, indent + 2)
+
 
 def get_font(size, weight, slant):
     key = (size, weight, slant)
@@ -27,25 +106,6 @@ def get_font(size, weight, slant):
         FONTS[key] = font
     return FONTS[key]
 
-def lex(body):
-    out = []
-    text = ""
-    in_tag = False
-    for c in body:
-        if c == "<":
-            in_tag = True
-            if text:
-                out.append(Text(text))
-            text = ""
-        elif c == ">":
-            in_tag = False
-            out.append(Tag(text))
-            text = ""
-        else:
-            text += c
-    if not in_tag and text:
-        out.append(Text(text))
-    return out
 
 class Layout:
     def __init__(self, tokens):
@@ -282,10 +342,12 @@ class Browser:
 
     def load(self, url):
         headers, body, show_flag = request(url)
-        tokens = lex(body)
-        self.tokens = tokens
-        self.display_list = Layout(tokens).display_list
-        self.draw()
+        nodes = HTMLParser(body).parse()
+        print_tree(nodes)
+        #tokens = lex(body)
+        #self.tokens = tokens
+        #self.display_list = Layout(tokens).display_list
+        #self.draw()
 
 if __name__ == "__main__":
     import sys
