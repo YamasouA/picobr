@@ -23,8 +23,9 @@ class Text:
         return repr(self.text)
 
 class Element:
-    def __init__(self, tag, parent):
+    def __init__(self, tag, attributes,  parent):
         self.tag = tag
+        self.attributes = attributes
         self.children = []
         self.parent = parent
     def __repr__(self):
@@ -45,7 +46,23 @@ class HTMLParser:
         node = Text(text, parent)
         parent.children.append(node)
 
+    def get_attributes(self, text):
+        parts = text.split()
+        tag = parts[0].lower()
+        attributes = {}
+        for attrpair in parts[1:]:
+            if "=" in attrpair:
+                key, value = attrpair.split("=", 1)
+                # 引用符を取り除く
+                if len(value) > 2 and value[0] in ["'", "\""]:
+                    value = value[1:-1]
+                attributes[key.lower()] = value
+            else:
+                attributes[attrpair.lower()] = ""
+        return tag, attributes
+
     def add_tag(self, tag):
+        tag, attributes = self.get_attributes(tag)
         # !doctypeはこのブラウザでは捨てる
         if tag.startswith("!"): return
         if tag.startswith("/"):
@@ -55,12 +72,12 @@ class HTMLParser:
             parent.children.append(node)
         elif tag in self.SELF_CLOSING_TAGS:
             parent = self.unfinished[-1]
-            node = Element(tag, parent)
+            node = Element(tag, attributes, parent)
             parent.children.append(node)
         else:
             parent = self.unfinished[-1] if self.unfinished else None
             # parentは開始タグの段階で情報を与える
-            node = Element(tag, parent)
+            node = Element(tag, attributes, parent)
             self.unfinished.append(node)
 
     def finish(self):
