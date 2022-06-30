@@ -130,8 +130,8 @@ class HTMLParser:
                 comment_text += c
                 if not is_comment:
                     self.add_tag(text)
-                print(comment_text)
-                print(comment_text[-3:])
+                #print(comment_text)
+                #print(comment_text[-3:])
                 if len(comment_text) >= 7 and comment_text[-3:] == "-->":
                     comment_text = ""
                     is_comment = False
@@ -211,12 +211,16 @@ class Layout:
             self.is_sup = False
         if tag == "pre":
             self.is_pre = False
+        if tag == "h1":
+            self.flush()
+        if tag == "h2":
+            self.flush()
 
     def recurse(self, tree):
         if isinstance(tree, Text):
             self.text(tree)
         else:
-            print(tree)
+            #print(tree)
             self.open_tag(tree.tag)
             for child in tree.children:
                 self.recurse(child)
@@ -281,8 +285,27 @@ class Layout:
         font = get_font(size=self.size, weight = self.weight, slant = self.style)
         if self.is_pre:
             tmp = ""
+            is_entitie = False
             for i in range(len(tok.text)):
-                if tok.text[i] == "\n":
+                if tok.text[i] == "&":
+                    if tmp != "":
+                        w = font.measure(tmp)
+                        if self.cursor_x + w >WIDTH - HSTEP:
+                            self.flush()
+                        self.line.append((self.cursor_x, tmp, font))
+                        self.cursor_x += w
+                        tmp = ""
+                    is_entitie = True
+                elif tok.text[i] == ";" and is_entitie:
+                    entitie = entities[tmp]
+                    w = font.measure(entitie)
+                    if self.cursor_x + w > WIDTH - HSTEP:
+                        self.flush()
+                    self.line.append((self.cursor_x, entitie, font))
+                    self.cursor_x += w
+                    is_entite = False
+                    tmp = ""
+                elif tok.text[i] == "\n":
                     w = font.measure(tmp)
                     self.line.append((self.cursor_x, tmp, font))
                     self.cursor_x += w
@@ -302,6 +325,7 @@ class Layout:
                 is_entitie = False
                 for i in range(len(word)):
                     if word[i] == "&":
+                        #print(word[i])
                         if tmp != "":
                             w = font.measure(tmp)
                             if self.cursor_x + w > WIDTH - HSTEP:
@@ -311,6 +335,7 @@ class Layout:
                             tmp = ""
                         is_entitie = True
                     elif word[i] == ";" and is_entitie:
+                        print(tmp)
                         entitie = entities[tmp]
                         w = font.measure(entitie)
                         if self.cursor_x + w > WIDTH - HSTEP:
