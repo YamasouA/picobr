@@ -32,16 +32,22 @@ class Element:
         return "<" + self.tag + ">"
 
 class HTMLParser:
+    HEAD_TAGS = [
+        "base", "basefont", "bgsound", "noscript",
+        "link", "meta", "title", "style", "script",
+    ]
+
+    SELF_CLOSING_TAGS = [
+        "area", "base", "br", "col", "embed", "hr", "img", "input",
+        "link", "meta", "param", "source", "track", "wbr",
+    ]
     def __init__(self, body):
         self.body = body
         self.unfinished = []
-        self.SELF_CLOSING_TAGS = [
-            "area", "base", "br", "col", "embed", "hr", "img", "input",
-            "link", "meta", "param", "source", "track", "wbr",
-        ]
 
     def add_text(self, text):
         if text.isspace(): return
+        self.implicit_tags(None)
         parent = self.unfinished[-1]
         node = Text(text, parent)
         parent.children.append(node)
@@ -65,6 +71,7 @@ class HTMLParser:
         tag, attributes = self.get_attributes(tag)
         # !doctypeはこのブラウザでは捨てる
         if tag.startswith("!"): return
+        self.implicit_tags(tag)
         if tag.startswith("/"):
             if len(self.unfinished) == 1: return
             node = self.unfinished.pop()
@@ -80,6 +87,21 @@ class HTMLParser:
             node = Element(tag, attributes, parent)
             self.unfinished.append(node)
 
+    def implicit_tags(self, tag):
+        while True:
+            open_tags = [node.tag for node in self.unfinished]
+            if open_tags == [] and tag != "html":
+                self.add_tag("html")
+            elif open_tags == ["html"] and tag not in ["head", "body", "/html"]:
+                if tag in self.HEAD_TAGS:
+                    self.add_tag("head")
+                else:
+                    self.add_tag("body")
+            elif open_tags == ["html", "head"] and tag not in ["/head"] + self.HEAD_TAGS:
+                self.add_tag("/head")
+            else:
+                break
+
     def finish(self):
         if len(self.unfinished) == 0:
             self.add_tag("html")
@@ -94,18 +116,34 @@ class HTMLParser:
     def parse(self):
         text = ""
         in_tag = False
+        comment_text = ""
+        is_comment = False
         for c in self.body:
             if c == "<":
                 in_tag = True
                 if text:
                     self.add_text(text)
                 text = ""
+                comment_text += c
             elif c == ">":
                 in_tag = False
-                self.add_tag(text)
+                comment_text += c
+                if not is_comment:
+                    self.add_tag(text)
+                print(comment_text)
+                print(comment_text[-3:])
+                if len(comment_text) >= 7 and comment_text[-3:] == "-->":
+                    comment_text = ""
+                    is_comment = False
                 text = ""
             else:
-                text += c
+                if comment_text != "":
+                    comment_text += c
+                    if comment_text == "<!--":
+                        is_comment = True
+                        text = text[:-3]
+                if not is_comment:
+                    text += c
         if not in_tag and text:
             self.add_text(text)
         return self.finish()
@@ -178,6 +216,7 @@ class Layout:
         if isinstance(tree, Text):
             self.text(tree)
         else:
+            print(tree)
             self.open_tag(tree.tag)
             for child in tree.children:
                 self.recurse(child)
