@@ -125,7 +125,7 @@ def get_font(size, weight, slant):
 
 
 class Layout:
-    def __init__(self, tokens):
+    def __init__(self, tree):
         self.cursor_x = HSTEP
         self.cursor_y = VSTEP
         self.weight = "normal"
@@ -135,9 +135,53 @@ class Layout:
         self.line = []
         self.is_sup = False
         self.is_pre = False
-        for tok in tokens:
-            self.token(tok)
+        #for tok in tokens:
+        #    self.token(tok)
+        self.recurse(tree)
         self.flush()
+
+    def open_tag(self, tag):
+        if tag == "i":
+            self.style = "italic"
+        if tag == "b":
+            self.weight = "bold"
+        if tag == "small":
+            self.size -= 2
+        if tag == "big":
+            self.size += 4 
+        if tag == "br":
+            self.flush()
+        if tag == "sup":
+            self.size = int(self.size/2)
+            self.is_sup = True
+        if tag == "pre":
+            self.is_pre = True
+
+    def close_tag(self, tag):
+        if tag == "i":
+            self.style = "roman"
+        if tag == "b":
+            self.weight = "normal"
+        if tag == "small":
+            self.size += 2
+        if tag == "big":
+            self.size -= 4
+        if tag == "p":
+            self.flush()
+        if tag == "sup":
+            self.size *= 2
+            self.is_sup = False
+        if tag == "pre":
+            self.is_pre = False
+
+    def recurse(self, tree):
+        if isinstance(tree, Text):
+            self.text(tree)
+        else:
+            self.open_tag(tree.tag)
+            for child in tree.children:
+                self.recurse(child)
+            self.close_tag(tree.tag)
 
     def flush(self):
         if not self.line: return
@@ -209,6 +253,7 @@ class Layout:
                     tmp += tok.text[i]
             if tmp != "":
                 self.line.append((self.cursor_x, tmp, font))
+                w = font.measure(tmp)
                 self.cursor_x += w
                 self.flush()
         else:    
@@ -263,6 +308,7 @@ class Browser:
         #self.VSTEP = 18
         #self.SCROLL_STEP = 100
         self.tokens = [] 
+        self.nodes = []
         self.font = tkinter.font.Font(family="Times", size=FONT_SIZE)
         self.canvas = tkinter.Canvas(
             self.window,
@@ -359,12 +405,13 @@ class Browser:
 
     def load(self, url):
         headers, body, show_flag = request(url)
-        nodes = HTMLParser(body).parse()
-        print_tree(nodes)
+        self.nodes = HTMLParser(body).parse()
+        self.display_list = Layout(self.nodes).display_list
+        #print_tree(nodes)
         #tokens = lex(body)
         #self.tokens = tokens
         #self.display_list = Layout(tokens).display_list
-        #self.draw()
+        self.draw()
 
 if __name__ == "__main__":
     import sys
