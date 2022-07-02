@@ -44,6 +44,7 @@ class HTMLParser:
     def __init__(self, body):
         self.body = body
         self.unfinished = []
+        self.is_script = False
 
     def add_text(self, text):
         if text.isspace(): return
@@ -118,8 +119,9 @@ class HTMLParser:
         in_tag = False
         comment_text = ""
         is_comment = False
+        script_text = ""
         for c in self.body:
-            if c == "<":
+            if c == "<" and not self.is_script:
                 in_tag = True
                 if text:
                     self.add_text(text)
@@ -128,7 +130,17 @@ class HTMLParser:
             elif c == ">":
                 in_tag = False
                 comment_text += c
-                if not is_comment:
+                if text == "script":
+                    print("script on")
+                    self.is_script = True
+                elif self.is_script and script_text[-8:] == "</script":
+                    print("script off")
+                    self.is_script = False
+                    print(script_text[:-8])
+                    self.add_text(script_text[:-8])
+                elif self.is_script:
+                    script_text += c
+                elif not is_comment:
                     self.add_tag(text)
                 #print(comment_text)
                 #print(comment_text[-3:])
@@ -142,7 +154,9 @@ class HTMLParser:
                     if comment_text == "<!--":
                         is_comment = True
                         text = text[:-3]
-                if not is_comment:
+                if self.is_script:
+                    script_text += c
+                elif not is_comment:
                     text += c
         if not in_tag and text:
             self.add_text(text)
@@ -173,6 +187,7 @@ class Layout:
         self.line = []
         self.is_sup = False
         self.is_pre = False
+        self.is_script = False
         #for tok in tokens:
         #    self.token(tok)
         self.recurse(tree)
@@ -194,6 +209,8 @@ class Layout:
             self.is_sup = True
         if tag == "pre":
             self.is_pre = True
+        if tag == "script":
+            self.is_script = True
 
     def close_tag(self, tag):
         if tag == "i":
@@ -211,6 +228,8 @@ class Layout:
             self.is_sup = False
         if tag == "pre":
             self.is_pre = False
+        if tag == "script":
+            self.is_script = False
         if tag == "h1":
             self.flush()
         if tag == "h2":
