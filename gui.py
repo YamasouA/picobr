@@ -335,6 +335,7 @@ class Layout:
             tmp = ""
             is_entitie = False
             for i in range(len(tok.text)):
+                print(tok.text[i])
                 if tok.text[i] == "&":
                     if tmp != "":
                         w = font.measure(tmp)
@@ -343,6 +344,7 @@ class Layout:
                         self.line.append((self.cursor_x, tmp, font))
                         self.cursor_x += w
                         tmp = ""
+                    print("is_entite on")
                     is_entitie = True
                 elif tok.text[i] == ";" and is_entitie:
                     entitie = entities[tmp]
@@ -351,7 +353,8 @@ class Layout:
                         self.flush()
                     self.line.append((self.cursor_x, entitie, font))
                     self.cursor_x += w
-                    is_entite = False
+                    print("is_entite off")
+                    is_entitie = False
                     tmp = ""
                 elif tok.text[i] == "\n":
                     w = font.measure(tmp)
