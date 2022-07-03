@@ -45,6 +45,7 @@ class HTMLParser:
         self.body = body
         self.unfinished = []
         self.is_script = False
+        self.is_quote = False
 
     def add_text(self, text):
         if text.isspace(): return
@@ -54,18 +55,46 @@ class HTMLParser:
         parent.children.append(node)
 
     def get_attributes(self, text):
-        parts = text.split()
+        is_quote = False
+        is_key = True
+        is_value = False
+        parts = text.split(' ', 1)
+        print("parts")
+        print(parts)
         tag = parts[0].lower()
         attributes = {}
-        for attrpair in parts[1:]:
-            if "=" in attrpair:
-                key, value = attrpair.split("=", 1)
+        text = ""
+        key = ""
+        value = ""
+        if len(parts) == 1:
+            return tag, attributes
+        for attr in parts[1]:
+            if attr == "\"":
+                is_quote = not is_quote
+            elif attr == "=":
+                is_key = not is_key
+                is_value = not is_value
+                #key, value = attrpair.split("=", 1)
                 # 引用符を取り除く
-                if len(value) > 2 and value[0] in ["'", "\""]:
-                    value = value[1:-1]
+                #if len(value) > 2 and value[0] in ["'", "\""]:
+                #    value = value[1:-1]
+                #attributes[key.lower()] = value
+            elif is_key and attr == " " and not is_quote:
+                attributes[key.lower()] = ""
+                key = ""
+            elif is_value and attr == " " and not is_quote:
                 attributes[key.lower()] = value
-            else:
-                attributes[attrpair.lower()] = ""
+                key = ""
+                value = ""
+                is_key = not is_key
+                is_value = not is_value
+            elif is_key:
+                key += attr
+            elif is_value:
+                value += attr
+        if key != "":
+            attributes[key.lower()] = value
+        print(attributes)
         return tag, attributes
 
     def add_tag(self, tag):
