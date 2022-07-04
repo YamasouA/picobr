@@ -28,6 +28,7 @@ class Element:
         self.attributes = attributes
         self.children = []
         self.parent = parent
+        self.syntax_highlight = ""
     def __repr__(self):
         return "<" + self.tag + ">"
 
@@ -269,6 +270,8 @@ class Layout:
             self.text(tree)
         else:
             #print(tree)
+            #if isinstance(tree, list):
+            #    return
             self.open_tag(tree.tag)
             for child in tree.children:
                 self.recurse(child)
@@ -276,16 +279,16 @@ class Layout:
 
     def flush(self):
         if not self.line: return
-        metrics = [font.metrics() for x, word, font in self.line]
+        metrics = [font.metrics() for x, word, font, color in self.line]
         max_ascent = max([metric["ascent"] for metric in metrics])
         if self.is_sup:
             baseline = self.cursor_y
         else:
             baseline = self.cursor_y + 1.25 * max_ascent
 
-        for x, word, font in self.line:
+        for x, word, font, color in self.line:
             y = baseline #- font.metrics("ascent")
-            self.display_list.append((x, y, word, font))
+            self.display_list.append((x, y, word, font, color))
 
         self.cursor_x = HSTEP
         self.line = []
@@ -315,6 +318,7 @@ class Layout:
             self.flush()
         elif tok.tag == "/p":
             self.flush()
+            self.cursor_y += VSTEP #段落が変わるときは空白を少し広げる
         elif tok.tag == "sup":
             self.size = int(self.size/2)
             self.is_sup = True
@@ -327,13 +331,15 @@ class Layout:
             self.is_pre = False
         #elif tok.tag == "h1 class=\"title\"":
         
-            self.cursor_y += VSTEP #段落が変わるときは空白を少し広げる
 
     def text(self, tok):
         font = get_font(size=self.size, weight = self.weight, slant = self.style)
+        color = "black"
         if self.is_pre:
             tmp = ""
             is_entitie = False
+            in_anc = False
+            is_attr = False
             for i in range(len(tok.text)):
                 print(tok.text[i])
                 if tok.text[i] == "&":
@@ -341,31 +347,38 @@ class Layout:
                         w = font.measure(tmp)
                         if self.cursor_x + w >WIDTH - HSTEP:
                             self.flush()
-                        self.line.append((self.cursor_x, tmp, font))
+                        self.line.append((self.cursor_x, tmp, font, color))
                         self.cursor_x += w
                         tmp = ""
                     print("is_entite on")
                     is_entitie = True
+
                 elif tok.text[i] == ";" and is_entitie:
+                    if tmp == "lt":
+                        in_anc = True
+                        color = "blue"
                     entitie = entities[tmp]
                     w = font.measure(entitie)
                     if self.cursor_x + w > WIDTH - HSTEP:
                         self.flush()
-                    self.line.append((self.cursor_x, entitie, font))
+                    self.line.append((self.cursor_x, entitie, font, color))
                     self.cursor_x += w
                     print("is_entite off")
                     is_entitie = False
+                    if tmp == "gt":
+                        in_anc = False
+                        color = "black"
                     tmp = ""
                 elif tok.text[i] == "\n":
                     w = font.measure(tmp)
-                    self.line.append((self.cursor_x, tmp, font))
+                    self.line.append((self.cursor_x, tmp, font, color))
                     self.cursor_x += w
                     self.flush()
                     tmp = ""
                 else:
                     tmp += tok.text[i]
             if tmp != "":
-                self.line.append((self.cursor_x, tmp, font))
+                self.line.append((self.cursor_x, tmp, font, color))
                 w = font.measure(tmp)
                 self.cursor_x += w
                 self.flush()
@@ -381,7 +394,7 @@ class Layout:
                             w = font.measure(tmp)
                             if self.cursor_x + w > WIDTH - HSTEP:
                                 self.flush()
-                            self.line.append((self.cursor_x, tmp, font))
+                            self.line.append((self.cursor_x, tmp, font, color))
                             self.cursor_x += w
                             tmp = ""
                         is_entitie = True
@@ -391,7 +404,7 @@ class Layout:
                         w = font.measure(entitie)
                         if self.cursor_x + w > WIDTH - HSTEP:
                             self.flush()
-                        self.line.append((self.cursor_x, entitie, font))
+                        self.line.append((self.cursor_x, entitie, font, color))
                         self.cursor_x += w
                         is_entitie = False
                         tmp = ""
@@ -401,7 +414,7 @@ class Layout:
                     w = font.measure(tmp)
                     if self.cursor_x + w > WIDTH - HSTEP:
                         self.flush()
-                    self.line.append((self.cursor_x, tmp, font))
+                    self.line.append((self.cursor_x, tmp, font, color))
                     self.cursor_x += w
                 
                 #w = font.measure(word)
@@ -509,14 +522,14 @@ class Browser:
 
     def draw(self):
         #print(self.display_list)
-        for x, y, c, font in self.display_list:
+        for x, y, c, font, color in self.display_list:
             # 画面より下
             #if y > self.scroll + self.HEIGHT: continue
             if y > self.scroll + HEIGHT: continue
             # 画面より上
             #if y + self.VSTEP < self.scroll: continue
             if y + VSTEP < self.scroll: continue
-            self.canvas.create_text(x, y - self.scroll, text=c, font=font, anchor='nw')
+            self.canvas.create_text(x, y - self.scroll, text=c, font=font, anchor='nw', fill=color)
 
     def load(self, url):
         headers, body, show_flag = request(url)
