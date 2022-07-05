@@ -12,6 +12,14 @@ SCROLL_STEP = 100
 FONT_SIZE = 16
 FONTS = {}
 
+BLOCK_ELEMENTS = [
+    "html", "body", "article", "section", "nav", "aside",
+    "h1", "h2", "h3", "h4", "h5", "h6", "hgroup", "header",
+    "footer", "address", "p", "hr", "pre", "blockquote",
+    "ol", "ul", "menu", "li", "dl", "dt", "dd", "figure",
+    "figcaption", "main", "div", "table", "form", "fieldset",
+    "legend", "details", "summary"
+]
 class Text:
     def __init__(self, text, parent):
         self.text = text
@@ -31,6 +39,72 @@ class Element:
         self.syntax_highlight = ""
     def __repr__(self):
         return "<" + self.tag + ">"
+
+def layout_mode(node):
+    if isinstance(node, Text):
+        return "inline"
+    elif node.children:
+        for child in node.children:
+            if isinstance(child, Text): continue
+            if child.tag in BLOCK_ELEMENTS:
+                return "block"
+        return "inline"
+    else:
+        return "block"
+
+class BlockLayout:
+    def __init__(self, node, parent, previous):
+        self.node = node
+        self.parent = parent
+        self.previous = previous
+        self.children = []
+
+    def layout(self):
+        # self, previous, nextはlayout tree.
+        # node はHTML tree
+        previous = None
+        self.width = self.parent.width
+        self.x = self.parent.x
+        if self.previous:
+            self.y = self.previous.y + self.previous.height
+        else:
+            self.y = self.parent.y
+        for child in self.node.children:
+            if layout_mode(child) == "inline":
+                next = InlineLayout(child, self, previous)
+            else:
+                next = BlockLayout(child, self, previous)
+            self.children.append(next)
+            previous = next
+        for child in self.children:
+            child.layout()
+        # 高さは子ノードが全て入る必要があるから、子ノードを全て計算してから計算する
+        self.height = sum([child.height for child in self.children])
+
+    def paint(self, display_list):
+        for child in self.children:
+            child.paint(display_list)
+
+
+class DocumentLayout:
+    def __init__(self, node):
+        self.node = node
+        self.parent = None
+        self.children = []
+
+    def layout(self):
+        child = BlockLayout(self.node, self, None)
+        self.children.append(child)
+        self.width = WIDTH - 2 * HSTEP
+        self.x = HSTEP
+        self.y = VSTEP
+        child.layout()
+        self.height = child.height + 2 * VSTEP
+
+    def paint(self, display_list):
+        for child in self.children:
+            child.paint(display_list)
+
 
 class HTMLParser:
     HEAD_TAGS = [
@@ -206,10 +280,25 @@ def get_font(size, weight, slant):
     return FONTS[key]
 
 
-class Layout:
-    def __init__(self, tree):
-        self.cursor_x = HSTEP
-        self.cursor_y = VSTEP
+class InlineLayout:
+    def __init__(self, node, parent, previous):
+        self.node = node
+        self.parent = parent
+        self.previous = previous
+        self.children = []
+        self.width = self.parent.width
+
+    def layout(self):
+        #self.cursor_x = HSTEP
+        #self.cursor_y = VSTEP
+        self.width = self.parent.width
+        self.x = self.parent.x
+        if self.previous:
+            self.y = self.previous.y + self.previous.height
+        else:
+            self.y = self.parent.y
+        self.cursor_x = self.x
+        self.cursor_y = self.y
         self.weight = "normal"
         self.style = "roman"
         self.size = FONT_SIZE
@@ -220,8 +309,9 @@ class Layout:
         self.is_script = False
         #for tok in tokens:
         #    self.token(tok)
-        self.recurse(tree)
+        self.recurse(self.node)
         self.flush()
+        self.height = self.cursor_y - self.y
 
     def open_tag(self, tag):
         if tag == "i":
@@ -290,7 +380,8 @@ class Layout:
             y = baseline #- font.metrics("ascent")
             self.display_list.append((x, y, word, font, color))
 
-        self.cursor_x = HSTEP
+        #self.cursor_x = HSTEP
+        self.cursor_x = self.x
         self.line = []
         max_descent = max([metric["descent"] for metric in metrics])
         self.cursor_y = baseline + 1.25 * max_descent
@@ -340,8 +431,9 @@ class Layout:
             is_entitie = False
             in_anc = False
             is_attr = False
+            is_quote = False
             for i in range(len(tok.text)):
-                print(tok.text[i])
+                #print(tok.text[i])
                 if tok.text[i] == "&":
                     if tmp != "":
                         w = font.measure(tmp)
@@ -423,6 +515,10 @@ class Layout:
                 #self.line.append((self.cursor_x, word, font))
                 #self.cursor_x += w + font.measure(" ")
                 self.cursor_x += font.measure(" ")
+
+
+    def paint(self, display_list):
+        display_list.extend(self.display_list)
 
 class Browser:
     def __init__(self):
@@ -534,7 +630,12 @@ class Browser:
     def load(self, url):
         headers, body, show_flag = request(url)
         self.nodes = HTMLParser(body).parse()
-        self.display_list = Layout(self.nodes).display_list
+        self.document = DocumentLayout(self.nodes)
+        self.document.layout()
+        self.display_list = []
+        self.document.paint(self.display_list)
+        self.draw()
+        #self.display_list = Layout(self.nodes).display_list
         #print_tree(nodes)
         #tokens = lex(body)
         #self.tokens = tokens
